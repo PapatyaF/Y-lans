@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🌼 Papatya Yılan</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+:root {
+–bg:       #0f0f13;
+–surface:  #1a1a22;
+–border:   #2a2a36;
+–text:     #e8e8f0;
+–muted:    #55556a;
+–snake1:   #f5e642;
+–snake2:   #c8b800;
+–head-w:   #ffffff;
+–head-y:   #f5d020;
+–food:     #ff5f7e;
+–food2:    #ff2d55;
+–slow-c:   #4db8ff;
+–trim-c:   #5af078;
+–accent:   #f5e642;
+}
+
+html, body {
+width:100%; height:100%;
+background: var(–bg);
+display:flex; flex-direction:column; align-items:center; justify-content:center;
+font-family: ‘Inter’, sans-serif;
+color: var(–text);
+overflow: hidden;
+user-select: none;
+}
+
+/* ── HUD ─────────────────────────── */
+#hud {
+width: 320px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 10px;
+padding: 0 2px;
+}
+.hud-block { display:flex; flex-direction:column; align-items:center; gap:1px; }
+.hud-label { font-size:9px; font-weight:600; letter-spacing:0.12em; color:var(–muted); text-transform:uppercase; }
+.hud-val   { font-size:20px; font-weight:700; color:var(–text); line-height:1; }
+.hud-val.accent { color:var(–accent); }
+
+/* ── POWER BAR ───────────────────── */
+#powerWrap {
+width:320px; height:4px;
+background: var(–border);
+border-radius:2px;
+margin-bottom:8px;
+overflow:hidden;
+}
+#powerBar {
+height:100%; width:0%;
+border-radius:2px;
+transition: background-color 0.4s;
+}
+
+/* ── CANVAS ──────────────────────── */
+#gameCanvas {
+display:block;
+border-radius:8px;
+border: 1px solid var(–border);
+image-rendering: pixelated;
+}
+
+/* ── CONTROLS ────────────────────── */
+#controls {
+margin-top:12px;
+width: 320px;
+display: flex;
+justify-content: center;
+align-items: center;
+}
+#dpad-grid {
+display:grid;
+grid-template-columns: repeat(3, 72px);
+grid-template-rows: repeat(2, 72px);
+gap:7px;
+}
+.dpad {
+width:72px; height:72px;
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius:14px;
+color: var(–text);
+font-size:24px;
+display:flex; align-items:center; justify-content:center;
+cursor:pointer;
+transition: background 0.08s, transform 0.06s, border-color 0.08s;
+-webkit-user-select:none;
+}
+.dpad:active, .dpad.pressed {
+background: var(–border);
+border-color: var(–accent);
+transform: scale(0.88);
+}
+.dpad.up    { grid-column:2; grid-row:1; }
+.dpad.left  { grid-column:1; grid-row:2; }
+.dpad.down  { grid-column:2; grid-row:2; }
+.dpad.right { grid-column:3; grid-row:2; }
+
+/* ── OVERLAY ─────────────────────── */
+#overlay {
+position:fixed; inset:0;
+background: rgba(10,10,16,0.92);
+display:flex; flex-direction:column;
+align-items:center; justify-content:center;
+gap:14px;
+z-index:10;
+backdrop-filter: blur(8px);
+}
+#overlay.gone { display:none; }
+
+.ov-icon  { font-size:52px; line-height:1; }
+.ov-title { font-size:24px; font-weight:700; color:var(–text); }
+.ov-sub   { font-size:13px; color:var(–muted); text-align:center; line-height:1.8; max-width:260px; }
+.ov-sub b { color:var(–text); }
+.ov-sub .hi { color:var(–accent); font-weight:700; }
+
+#nameInput {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius:8px;
+color: var(–text);
+font-family:‘Inter’,sans-serif;
+font-size:14px; font-weight:500;
+padding:10px 18px;
+text-align:center;
+outline:none;
+width:200px;
+transition: border-color 0.2s;
+}
+#nameInput:focus { border-color:var(–accent); }
+
+.ov-btn {
+background: var(–accent);
+color: #0f0f13;
+border:none; border-radius:8px;
+font-family:‘Inter’,sans-serif;
+font-size:14px; font-weight:700;
+letter-spacing:0.05em;
+padding:12px 36px;
+cursor:pointer;
+transition: opacity 0.15s, transform 0.1s;
+}
+.ov-btn:active { opacity:0.8; transform:scale(0.96); }
+
+/* score table */
+#scoreList {
+width:280px;
+border-collapse:collapse;
+font-size:12px;
+}
+#scoreList th {
+color:var(–muted); font-weight:600;
+padding:4px 8px; border-bottom:1px solid var(–border);
+text-align:left; letter-spacing:0.05em;
+}
+#scoreList td {
+padding:5px 8px; color:var(–text); font-weight:500;
+}
+#scoreList tr.gold td { color:var(–accent); font-weight:700; }
+#scoreList tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+
+/* power toast */
+#toast {
+position:fixed;
+top: 50%; left:50%;
+transform: translate(-50%,-50%) scale(0.8);
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius:12px;
+padding:14px 28px;
+text-align:center;
+pointer-events:none;
+opacity:0;
+transition: opacity 0.2s, transform 0.2s;
+z-index:9;
+}
+#toast.show {
+opacity:1;
+transform:translate(-50%,-50%) scale(1);
+}
+#toast .t-icon { font-size:32px; }
+#toast .t-text { font-size:13px; font-weight:600; color:var(–text); margin-top:4px; }
+
+/* shake */
+@keyframes shake {
+0%,100%{transform:translateX(0);}
+20%{transform:translateX(-9px);}
+40%{transform:translateX(9px);}
+60%{transform:translateX(-6px);}
+80%{transform:translateX(4px);}
+}
+.shake { animation:shake 0.35s ease-out; }
+</style>
+
+</head>
+<body>
+
+<!-- HUD -->
+
+<div id="hud">
+  <div class="hud-block">
+    <span class="hud-label">Skor</span>
+    <span class="hud-val accent" id="hScore">0</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">Süre</span>
+    <span class="hud-val" id="hTime">0:00</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">En İyi</span>
+    <span class="hud-val" id="hBest">0</span>
+  </div>
+</div>
+
+<!-- Power progress bar -->
+
+<div id="powerWrap"><div id="powerBar"></div></div>
+
+<!-- Canvas -->
+
+<canvas id="gameCanvas" width="320" height="320"></canvas>
+
+<!-- D-Pad -->
+
+<div id="controls">
+  <div id="dpad-grid">
+    <button class="dpad up"    id="dU">↑</button>
+    <button class="dpad left"  id="dL">←</button>
+    <button class="dpad down"  id="dD">↓</button>
+    <button class="dpad right" id="dR">→</button>
+  </div>
+</div>
+
+<!-- Toast -->
+
+<div id="toast"><div class="t-icon" id="tIcon"></div><div class="t-text" id="tText"></div></div>
+
+<!-- Overlay -->
+
+<div id="overlay">
+  <div class="ov-icon">🌼</div>
+  <div class="ov-title">Papatya Yılan</div>
+  <div class="ov-sub">Açelya çiçeklerini ye, büyü!<br><b>30 dakika</b> hayatta kalabilir misin?</div>
+  <input id="nameInput" maxlength="14" placeholder="Adını gir…" autocomplete="off" spellcheck="false">
+  <button class="ov-btn" id="startBtn">Başla</button>
+</div>
+
+<script>
+'use strict';
+
+// ─── CONFIG ───────────────────────────────────────────────
+const COLS = 16, ROWS = 16, CELL = 20;
+const SPEED_START = 160;   // ms per step başlangıç
+const SPEED_MIN   = 48;    // minimum
+const SPEED_RAMP  = 1_800_000; // 30 dk
+
+// Güçlendirici zaman çizelgesi (saniye cinsinden, döngüsel)
+// Her 90 saniyede bir döngü: 30sn normal → 30sn yavaş → 30sn kısal
+const POWER_CYCLE = 90;
+const POWERS = [
+  { id:'none',  start:0,  dur:30 },
+  { id:'slow',  start:30, dur:30, icon:'🧊', label:'Yavaş modu!' },
+  { id:'trim',  start:60, dur:30, icon:'✂️', label:'Kuyruk kısaldı!' },
+];
+
+// ─── STATE ────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+
+let snake, dir, inputQueue, food, score, running;
+let startTs, elapsed;
+let activePower = 'none', shownPower = 'none';
+let powerBarAnim = 0;
+let highScores = JSON.parse(localStorage.getItem('pys_hs') || '[]');
+let playerName = '';
+let rafId;
+
+// ─── INPUT QUEUE (tuş hassasiyeti için) ───────────────────
+// Birden fazla tuş basışı kaybolmaz, sırayla işlenir
+function queueDir(d) {
+  if (!running) return;
+  const last = inputQueue.length ? inputQueue[inputQueue.length-1] : dir;
+  // 180 derece dönüşü engelle
+  if (d.x === -last.x && d.y === -last.y) return;
+  // Aynı yönü tekrar ekleme
+  if (d.x === last.x && d.y === last.y) return;
+  if (inputQueue.length < 3) inputQueue.push(d);
+}
+
+// ─── SES ──────────────────────────────────────────────────
+let aCtx;
+function getAC() { if (!aCtx) aCtx = new (window.AudioContext||window.webkitAudioContext)(); return aCtx; }
+
+function beep(freq, dur, type='sine', vol=0.14) {
+  try {
+    const a=getAC(), o=a.createOscillator(), g=a.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq, a.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq*1.4, a.currentTime+dur*0.6);
+    g.gain.setValueAtTime(vol, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime+dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(); o.stop(a.currentTime+dur+0.01);
+  } catch(e) {}
+}
+
+function playEat()   { beep(520, 0.08, 'sine', 0.13); }
+function playPower() { beep(400, 0.06); setTimeout(()=>beep(600,0.08),70); setTimeout(()=>beep(800,0.1),150); }
+function playDie()   {
+  try {
+    const a=getAC();
+    [0,0.09,0.18].forEach((t,i)=>{
+      const o=a.createOscillator(),g=a.createGain();
+      o.type='sawtooth'; o.frequency.setValueAtTime(260-i*55, a.currentTime+t);
+      o.frequency.exponentialRampToValueAtTime(55, a.currentTime+t+0.22);
+      g.gain.setValueAtTime(0.13, a.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(0.001, a.currentTime+t+0.25);
+      o.connect(g); g.connect(a.destination);
+      o.start(a.currentTime+t); o.stop(a.currentTime+t+0.28);
+    });
+  } catch(e) {}
+}
+
+// ─── ÇİZİM ────────────────────────────────────────────────
+function drawBg() {
+  ctx.fillStyle = '#0f0f13';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // İnce grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 0.5;
+  for (let i=1;i<COLS;i++) { ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,ROWS*CELL);ctx.stroke(); }
+  for (let j=1;j<ROWS;j++) { ctx.beginPath();ctx.moveTo(0,j*CELL);ctx.lineTo(COLS*CELL,j*CELL);ctx.stroke(); }
+}
+
+// Açelya yiyecek
+function drawFood() {
+  const cx = food.x*CELL+CELL/2, cy = food.y*CELL+CELL/2, r = CELL*0.38;
+  // Yapraklar
+  const petCols = ['#ff5f7e','#e03060','#ff7090','#d02050','#ff4070'];
+  for (let i=0;i<5;i++) {
+    const a = (i/5)*Math.PI*2 - Math.PI/2;
+    const px = cx+Math.cos(a)*r*0.65, py = cy+Math.sin(a)*r*0.65;
+    ctx.beginPath(); ctx.ellipse(px,py,r*0.42,r*0.27,a,0,Math.PI*2);
+    ctx.fillStyle = petCols[i]; ctx.fill();
+  }
+  // Merkez
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.22,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.11,0,Math.PI*2);
+  ctx.fillStyle='#ffd700'; ctx.fill();
+  // Parıltı
+  ctx.beginPath(); ctx.arc(cx-r*0.08,cy-r*0.08,r*0.06,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fill();
+}
+
+// Papatya kafa
+function drawHead(cx, cy, r) {
+  // 8 beyaz yaprak
+  for (let i=0;i<8;i++) {
+    const a=(i/8)*Math.PI*2;
+    const px=cx+Math.cos(a)*r*0.68, py=cy+Math.sin(a)*r*0.68;
+    ctx.beginPath(); ctx.ellipse(px,py,r*0.28,r*0.18,a,0,Math.PI*2);
+    ctx.fillStyle='#ffffff'; ctx.fill();
+  }
+  // Sarı merkez
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.30,0,Math.PI*2);
+  ctx.fillStyle='#f5d020'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.13,0,Math.PI*2);
+  ctx.fillStyle='#c89000'; ctx.fill();
+  // Işıltı
+  ctx.beginPath(); ctx.arc(cx-r*0.08,cy-r*0.09,r*0.07,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.fill();
+}
+
+function snakeBodyColor(t) {
+  // t: 0=kafa yanı 1=kuyruk ucu  sarıdan yeşile
+  const r = Math.round(235 - t*60);
+  const g = Math.round(210 + t*25);
+  const b = Math.round(20  + t*12);
+  return `rgb(${r},${g},${b})`;
+}
+
+function drawSnake() {
+  const len = snake.length;
+  for (let i = len-1; i >= 0; i--) {
+    const s = snake[i];
+    const cx = s.x*CELL+CELL/2, cy = s.y*CELL+CELL/2;
+    if (i === 0) {
+      drawHead(cx, cy, CELL*0.44);
+    } else {
+      const t = i / Math.max(len-1, 1);
+      ctx.fillStyle = snakeBodyColor(t);
+      const sz = Math.round(CELL * (0.39 - t*0.14));
+      const pad = (CELL - sz*2) / 2;
+      ctx.beginPath();
+      ctx.roundRect(s.x*CELL+pad, s.y*CELL+pad, sz*2, sz*2, Math.max(sz*0.4,2));
+      ctx.fill();
+      // Pul parlaklığı
+      if (i%2===0) {
+        ctx.fillStyle='rgba(255,255,255,0.09)';
+        ctx.beginPath(); ctx.arc(cx,cy,sz*0.5,0,Math.PI*2); ctx.fill();
+      }
+    }
+  }
+}
+
+function render() {
+  drawBg();
+  drawFood();
+  drawSnake();
+}
+
+// ─── POWER BAR ────────────────────────────────────────────
+const powerBarEl = document.getElementById('powerBar');
+
+const POWER_COLORS = { none:'transparent', slow:'#4db8ff', trim:'#5af078' };
+
+function updatePowerBar(elapsedMs) {
+  const sec = Math.floor(elapsedMs/1000);
+  const pos = sec % POWER_CYCLE;
+  const p   = getCurrentPower(pos);
+
+  if (p.id === 'none') {
+    powerBarEl.style.width = '0%';
+    return;
+  }
+  // Süre içindeki ilerleme
+  const progress = (pos - p.start) / p.dur;
+  powerBarEl.style.width = (progress*100).toFixed(1)+'%';
+  powerBarEl.style.background = POWER_COLORS[p.id];
+}
+
+function getCurrentPower(secInCycle) {
+  for (const p of POWERS) {
+    if (secInCycle >= p.start && secInCycle < p.start + p.dur) return p;
+  }
+  return POWERS[0];
+}
+
+// ─── TOAST ────────────────────────────────────────────────
+let toastTimer;
+const toast = document.getElementById('toast');
+
+function showToast(icon, text) {
+  document.getElementById('tIcon').textContent = icon;
+  document.getElementById('tText').textContent = text;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toast.classList.remove('show'), 1800);
+}
+
+// ─── GAME LOOP ────────────────────────────────────────────
+let lastStep = 0;
+
+function gameLoop(ts) {
+  if (!running) return;
+  if (!startTs) startTs = ts;
+  elapsed = ts - startTs;
+
+  // HUD süre
+  const sec = Math.floor(elapsed/1000);
+  const m = Math.floor(sec/60), s = sec%60;
+  document.getElementById('hTime').textContent = m+':'+(s<10?'0':'')+s;
+
+  // Güçlendirici kontrolü
+  const posInCycle = sec % POWER_CYCLE;
+  const p = getCurrentPower(posInCycle);
+  if (p.id !== shownPower) {
+    shownPower = p.id;
+    activePower = p.id;
+    if (p.id !== 'none') {
+      playPower();
+      showToast(p.icon, p.label);
+      if (p.id === 'trim' && snake.length > 4) {
+        snake = snake.slice(0, Math.max(4, Math.ceil(snake.length/2)));
+      }
+    }
+  }
+
+  updatePowerBar(elapsed);
+
+  // Adım
+  let spd = speedAt(elapsed);
+  if (activePower === 'slow') spd = Math.min(spd * 2.0, SPEED_START);
+
+  if (ts - lastStep >= spd) {
+    lastStep = ts;
+    step();
+  }
+
+  if (running) rafId = requestAnimationFrame(gameLoop);
+}
+
+function speedAt(ms) {
+  const t = Math.min(ms/SPEED_RAMP, 1);
+  return Math.round(SPEED_START - (SPEED_START-SPEED_MIN)*(t*t));
+}
+
+function step() {
+  // Input queue'dan sonraki yönü al
+  if (inputQueue.length) dir = inputQueue.shift();
+
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+  // Çarpışma
+  if (head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snake.some(s=>s.x===head.x&&s.y===head.y)) {
+    endGame(); return;
+  }
+
+  snake.unshift(head);
+
+  if (head.x===food.x && head.y===food.y) {
+    score++;
+    document.getElementById('hScore').textContent = score;
+    playEat();
+    spawnFood();
+  } else {
+    snake.pop();
+  }
+
+  render();
+}
+
+// ─── INIT / END ───────────────────────────────────────────
+function spawnFood() {
+  let pos;
+  do { pos={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)}; }
+  while (snake.some(s=>s.x===pos.x&&s.y===pos.y));
+  food = pos;
+}
+
+function initGame() {
+  snake = [{x:8,y:8},{x:7,y:8},{x:6,y:8},{x:5,y:8}];
+  dir = {x:1,y:0};
+  inputQueue = [];
+  score = 0;
+  elapsed = 0;
+  startTs = null;
+  lastStep = 0;
+  activePower = 'none';
+  shownPower  = 'none';
+  powerBarEl.style.width = '0%';
+  document.getElementById('hScore').textContent = '0';
+  document.getElementById('hTime').textContent  = '0:00';
+  spawnFood();
+  render();
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(rafId);
+  playDie();
+
+  // Shake
+  canvas.classList.remove('shake');
+  void canvas.offsetWidth;
+  canvas.classList.add('shake');
+
+  // Kaydet
+  const sec = Math.floor(elapsed/1000);
+  highScores.push({name:playerName, score, time:sec});
+  highScores.sort((a,b)=>b.score-a.score||(b.time-a.time));
+  highScores = highScores.slice(0,8);
+  localStorage.setItem('pys_hs', JSON.stringify(highScores));
+
+  const best = highScores[0]?.score||0;
+  document.getElementById('hBest').textContent = best;
+
+  // Overlay
+  showGameOver(score, sec);
+}
+
+// ─── OVERLAY ──────────────────────────────────────────────
+const overlay   = document.getElementById('overlay');
+const startBtn  = document.getElementById('startBtn');
+const nameInput = document.getElementById('nameInput');
+
+function showGameOver(sc, sec) {
+  const m=Math.floor(sec/60), s=sec%60;
+  overlay.innerHTML = `
+    <div class="ov-icon">${sc===0?'😢':'💀'}</div>
+    <div class="ov-title">${sc===0?'Çok erken!':'Öldün!'}</div>
+    <div class="ov-sub">
+      Skor: <span class="hi">${sc}</span> &nbsp;·&nbsp; Süre: <span class="hi">${m}:${s<10?'0':''}${s}</span>
+    </div>
+    ${buildTable()}
+    <button class="ov-btn" id="retryBtn">Tekrar Oyna</button>
+  `;
+  overlay.classList.remove('gone');
+  document.getElementById('retryBtn').addEventListener('click', ()=>{ overlay.classList.add('gone'); startGame(); });
+}
+
+function buildTable() {
+  if (!highScores.length) return '';
+  let rows = highScores.map((h,i)=>{
+    const m=Math.floor(h.time/60),s=h.time%60;
+    return `<tr class="${i===0?'gold':''}">
+      <td>${i===0?'🥇':i+1}</td>
+      <td>${h.name}</td>
+      <td>${h.score}</td>
+      <td>${m}:${s<10?'0':''}${s}</td>
+    </tr>`;
+  }).join('');
+  return `<table id="scoreList">
+    <thead><tr><th>#</th><th>İsim</th><th>Skor</th><th>Süre</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function startGame() {
+  playerName = nameInput?.value?.trim() || playerName || 'Oyuncu';
+  initGame();
+  running = true;
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+startBtn.addEventListener('click', ()=>{
+  overlay.classList.add('gone');
+  startGame();
+});
+
+// ─── KLAVYE ───────────────────────────────────────────────
+const keyMap = {
+  ArrowUp:    {x:0,y:-1}, w:{x:0,y:-1}, W:{x:0,y:-1},
+  ArrowDown:  {x:0,y:1},  s:{x:0,y:1},  S:{x:0,y:1},
+  ArrowLeft:  {x:-1,y:0}, a:{x:-1,y:0}, A:{x:-1,y:0},
+  ArrowRight: {x:1,y:0},  d:{x:1,y:0},  D:{x:1,y:0},
+};
+document.addEventListener('keydown', e=>{
+  const d = keyMap[e.key];
+  if (d) { queueDir(d); e.preventDefault(); }
+});
+
+// ─── D-PAD BUTONLARI ──────────────────────────────────────
+function bindDpad(id, d) {
+  const el = document.getElementById(id);
+  // touchstart için anında tepki (click'ten çok daha hızlı)
+  const fire = (e) => {
+    e.preventDefault();
+    queueDir(d);
+    el.classList.add('pressed');
+    setTimeout(()=>el.classList.remove('pressed'), 120);
+  };
+  el.addEventListener('touchstart', fire, {passive:false});
+  el.addEventListener('mousedown',  fire);
+}
+bindDpad('dU', {x:0,y:-1});
+bindDpad('dD', {x:0,y:1});
+bindDpad('dL', {x:-1,y:0});
+bindDpad('dR', {x:1,y:0});
+
+// ─── SWIPE (canvas üzerinde) ──────────────────────────────
+let swipeX, swipeY;
+canvas.addEventListener('touchstart', e=>{
+  swipeX=e.touches[0].clientX; swipeY=e.touches[0].clientY;
+},{passive:true});
+canvas.addEventListener('touchend', e=>{
+  if(!running) return;
+  const dx=e.changedTouches[0].clientX-swipeX;
+  const dy=e.changedTouches[0].clientY-swipeY;
+  if(Math.abs(dx)+Math.abs(dy)<12) return; // çok kısa swipe yok say
+  if(Math.abs(dx)>Math.abs(dy)) queueDir(dx>0?{x:1,y:0}:{x:-1,y:0});
+  else queueDir(dy>0?{x:0,y:1}:{x:0,y:-1});
+},{passive:true});
+
+// ─── BAŞLANGIÇ ────────────────────────────────────────────
+document.getElementById('hBest').textContent = highScores[0]?.score||0;
+initGame();
+</script>
+
+</body>
+</html>
